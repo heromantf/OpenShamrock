@@ -32,7 +32,7 @@ internal object GetRecord: IActionHandler() {
                 url = "/res/${audioFile.nameWithoutExtension}"
             ), echo)
         } else {
-            error("not found record file from cache")
+            error("not found record file from cache", echo)
         }
     }
 
