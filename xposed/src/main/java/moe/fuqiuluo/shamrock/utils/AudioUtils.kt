@@ -84,9 +84,14 @@ object AudioUtils {
             silkFile = it.first
             duration = it.second
         }
+
+        LogCenter.log("音频转SILK时长：$duration", Level.DEBUG)
+
+        /*
         if (duration < 1000) {
             duration = 1000
         }
+        */
 
         if (!silkFile.exists()) {
             LogCenter.log("音频转SILK错误：$silkFile", Level.ERROR)

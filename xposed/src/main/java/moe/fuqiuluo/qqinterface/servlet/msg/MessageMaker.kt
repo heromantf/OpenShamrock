@@ -578,7 +578,7 @@ internal object MessageMaker {
             MediaType.Pcm -> {
                 LogCenter.log({ "Pcm To Silk: $file" }, Level.DEBUG)
                 val result = AudioUtils.pcmToSilk(file)
-                ptt.duration = (result.second * 0.001).roundToInt()
+                ptt.duration = result.second
                 file = result.first
                 ptt.formatType = MsgConstant.KPTTFORMATTYPESILK
             }
