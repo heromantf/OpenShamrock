@@ -22,14 +22,17 @@ internal object GetMsg: IActionHandler() {
         val msg = MsgSvc.getMsg(msgHash).onFailure {
             return logic("Obtain msg failed, please check your msg_id.", echo)
         }.getOrThrow()
-        val seq = msg.clientSeq.toInt()
+        val seq = msg.msgSeq.toInt()
         return ok(MessageDetail(
             time = msg.msgTime.toInt(),
             msgType = MessageHelper.obtainDetailTypeByMsgType(msg.chatType),
             msgId = msgHash,
             realId = seq,
             sender = MessageSender(
-                msg.senderUin, msg.sendNickName, "unknown", 0, msg.senderUid
+                msg.senderUin, msg.sendNickName
+                    .ifBlank { msg.sendMemberName }
+                    .ifBlank { msg.sendRemarkName }
+                    .ifBlank { msg.peerName }, "unknown", 0, msg.senderUid
             ),
             message = MessageConvert.convertMessageRecordToMsgSegment(msg).map {
                 it.toJson()
