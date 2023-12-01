@@ -55,12 +55,42 @@ internal sealed class MessageElemConverter: IMessageConvert {
                     )
                 )
             }
-            return MessageSegment(
-                type = "face",
-                data = hashMapOf(
-                    "id" to face.faceIndex
+
+
+            when (face.faceIndex) {
+                114 -> {
+                    return MessageSegment(
+                        type = "basketball",
+                        data = hashMapOf(
+                            "id" to face.resultId.ifEmpty { "0" }.toInt(),
+                        )
+                    )
+                }
+                358 -> {
+                    if (face.sourceType == 1) return MessageSegment("new_dice")
+                    return MessageSegment(
+                        type = "new_dice",
+                        data = hashMapOf(
+                            "id" to face.resultId.ifEmpty { "0" }.toInt()
+                        )
+                    )
+                }
+                359 -> {
+                    if (face.resultId.isEmpty()) return MessageSegment("new_rps")
+                    return MessageSegment(
+                        type = "new_rps",
+                        data = hashMapOf(
+                            "id" to face.resultId.ifEmpty { "0" }.toInt()
+                        )
+                    )
+                }
+                else -> return MessageSegment(
+                    type = "face",
+                    data = hashMapOf(
+                        "id" to face.faceIndex
+                    )
                 )
-            )
+            }
         }
     }
 
@@ -327,10 +357,10 @@ internal sealed class MessageElemConverter: IMessageConvert {
             val fileSize = fileMsg.fileSize
             val expireTime = fileMsg.expireTime ?: 0
             val fileId = fileMsg.fileUuid
-            val bizId = fileMsg.fileBizId
+            val bizId = fileMsg.fileBizId  ?: 0
             val fileSubId = fileMsg.fileSubId ?: ""
             val url = if (chatType == MsgConstant.KCHATTYPEC2C) RichProtoSvc.getC2CFileDownUrl(fileId, fileSubId)
-            else RichProtoSvc.getGroupFileDownUrl(peerId.toLong(), fileId, fileMsg.fileBizId)
+            else RichProtoSvc.getGroupFileDownUrl(peerId.toLong(), fileId, bizId)
 
             return MessageSegment(
                 type = "file",
