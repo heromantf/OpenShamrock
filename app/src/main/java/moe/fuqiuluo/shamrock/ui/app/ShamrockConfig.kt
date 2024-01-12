@@ -249,6 +249,11 @@ object ShamrockConfig {
         return preferences.getBoolean("enable_auto_start", false)
     }
 
+    fun enableAliveReply(ctx: Context): Boolean {
+        val preferences = ctx.getSharedPreferences("config", 0)
+        return preferences.getBoolean("alive_reply", false)
+    }
+
     fun allowShell(ctx: Context): Boolean {
         val preferences = ctx.getSharedPreferences("config", 0)
         return preferences.getBoolean("shell", false)
@@ -257,6 +262,11 @@ object ShamrockConfig {
     fun setAutoStart(ctx: Context, v: Boolean) {
         val preferences = ctx.getSharedPreferences("config", 0)
         preferences.edit().putBoolean("enable_auto_start", v).apply()
+    }
+
+    fun setAliveReply(ctx: Context, v: Boolean) {
+        val preferences = ctx.getSharedPreferences("config", 0)
+        preferences.edit().putBoolean("alive_reply", v).apply()
     }
 
     fun setShellStatus(ctx: Context, v: Boolean) {
@@ -269,19 +279,19 @@ object ShamrockConfig {
         return preferences.getBoolean("enable_self_msg", false)
     }
 
+    fun enableSyncMsgAsSentMsg(ctx: Context): Boolean {
+        val preferences = ctx.getSharedPreferences("config", 0)
+        return preferences.getBoolean("enable_sync_msg_as_sent_msg", false)
+    }
+
     fun setEnableSelfMsg(ctx: Context, v: Boolean) {
         val preferences = ctx.getSharedPreferences("config", 0)
         preferences.edit().putBoolean("enable_self_msg", v).apply()
     }
 
-    fun isEchoNumber(ctx: Context): Boolean {
+    fun setEnableSyncMsgAsSentMsg(ctx: Context, v: Boolean) {
         val preferences = ctx.getSharedPreferences("config", 0)
-        return preferences.getBoolean("echo_number", false)
-    }
-
-    fun setEchoNumber(ctx: Context, v: Boolean) {
-        val preferences = ctx.getSharedPreferences("config", 0)
-        preferences.edit().putBoolean("echo_number", v).apply()
+        preferences.edit().putBoolean("enable_sync_msg_as_sent_msg", v).apply()
     }
 
     fun getConfigMap(ctx: Context): Map<String, Any?> {
@@ -304,12 +314,14 @@ object ShamrockConfig {
             "inject_packet" to preferences.getBoolean("inject_packet", false),
             "debug" to preferences.getBoolean("debug", false),
             "anti_qq_trace" to preferences.getBoolean("anti_qq_trace", true),
-            "auto_clear" to preferences.getBoolean("auto_clear", false),
+            //"auto_clear" to preferences.getBoolean("auto_clear", false),
             "ssl_private_pwd" to preferences.getString("ssl_private_pwd", ""),
             "key_store" to preferences.getString("key_store", ""),
             "enable_self_msg" to preferences.getBoolean("enable_self_msg", false),
             "echo_number" to preferences.getBoolean("echo_number", false),
             "shell" to preferences.getBoolean("shell", false),
+            "alive_reply" to preferences.getBoolean("alive_reply", false),
+            "enable_sync_msg_as_sent_msg" to preferences.getBoolean("enable_sync_msg_as_sent_msg", false),
         )
     }
 

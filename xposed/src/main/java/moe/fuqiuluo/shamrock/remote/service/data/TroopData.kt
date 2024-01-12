@@ -26,6 +26,7 @@ internal data class SimpleTroopMemberInfo(
     @SerialName("group_id") val groupId: Long,
     @SerialName("user_name") val name: String,
     @SerialName("sex") val sex: String,
+    @SerialName("age") val age: Int,
     @SerialName("title") val title: String,
     @SerialName("title_expire_time") val titleExpireTime: Int,
     @SerialName("nickname") val nick: String,
@@ -42,6 +43,7 @@ internal data class SimpleTroopMemberInfo(
     @SerialName("role") val role: MemberRole,
     @SerialName("unfriendly") val unfriendly: Boolean,
     @SerialName("card_changeable") val cardChangeable: Boolean,
+    @SerialName("shut_up_timestamp") val shutUpTimestamp: Long?,
 )
 
 @Serializable

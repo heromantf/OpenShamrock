@@ -2,6 +2,7 @@
 
 package moe.fuqiuluo.qqinterface.servlet
 
+import androidx.core.text.HtmlCompat
 import com.tencent.common.app.AppInterface
 import com.tencent.mobileqq.app.BusinessHandlerFactory
 import com.tencent.mobileqq.app.QQAppInterface
@@ -46,7 +47,11 @@ import moe.fuqiuluo.proto.ProtoUtils
 import moe.fuqiuluo.proto.asInt
 import moe.fuqiuluo.proto.asUtf8String
 import moe.fuqiuluo.proto.protobufOf
+import moe.fuqiuluo.qqinterface.servlet.TicketSvc.getLongUin
+import moe.fuqiuluo.qqinterface.servlet.TicketSvc.getUin
+import moe.fuqiuluo.qqinterface.servlet.entries.GroupAtAllRemainInfo
 import moe.fuqiuluo.qqinterface.servlet.entries.ProhibitedMemberInfo
+import moe.fuqiuluo.shamrock.helper.Level
 import moe.fuqiuluo.shamrock.helper.LogCenter
 import moe.fuqiuluo.shamrock.helper.MessageHelper
 import moe.fuqiuluo.shamrock.remote.service.data.EssenceMessage
@@ -65,13 +70,19 @@ import moe.fuqiuluo.shamrock.tools.ifNullOrEmpty
 import moe.fuqiuluo.shamrock.tools.putBuf32Long
 import moe.fuqiuluo.shamrock.tools.slice
 import moe.fuqiuluo.shamrock.utils.FileUtils
+import moe.fuqiuluo.shamrock.utils.PlatformUtils
 import moe.fuqiuluo.shamrock.xposed.helper.AppRuntimeFetcher
 import moe.fuqiuluo.shamrock.xposed.helper.NTServiceFetcher
+import mqq.app.MobileQQ
+import tencent.im.group.group_member_info
 import tencent.im.oidb.cmd0x899.oidb_0x899
 import tencent.im.oidb.cmd0x89a.oidb_0x89a
 import tencent.im.oidb.cmd0x8a0.oidb_0x8a0
+import tencent.im.oidb.cmd0x8a7.cmd0x8a7
 import tencent.im.oidb.cmd0x8fc.Oidb_0x8fc
+import tencent.im.oidb.cmd0xeb7.oidb_0xeb7
 import tencent.im.oidb.oidb_sso
+import tencent.im.troop.honor.troop_honor
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import java.nio.ByteBuffer
@@ -94,6 +105,27 @@ internal object GroupSvc: BaseSvc() {
     private lateinit var METHOD_REQ_TROOP_MEM_LIST: Method
     private lateinit var METHOD_REQ_MODIFY_GROUP_NAME: Method
 
+    suspend fun getGroupRemainAtAllRemain (groupId: Long): Result<GroupAtAllRemainInfo> {
+        val buffer = sendOidbAW("OidbSvcTrpcTcp.0x8a7_0", 2215, 0, cmd0x8a7.ReqBody().apply {
+            uint32_sub_cmd.set(1)
+            uint32_limit_interval_type_for_uin.set(2)
+            uint32_limit_interval_type_for_group.set(1)
+            uint64_uin.set(getLongUin())
+            uint64_group_code.set(groupId)
+        }.toByteArray(), trpc = true) ?: return Result.failure(RuntimeException("[oidb] timeout"))
+        val body = oidb_sso.OIDBSSOPkg()
+        body.mergeFrom(buffer.slice(4))
+        if(body.uint32_result.get() != 0) {
+            return Result.failure(RuntimeException(body.str_error_msg.get()))
+        }
+
+        val resp = cmd0x8a7.RspBody().mergeFrom(body.bytes_bodybuffer.get().toByteArray())
+        return Result.success(GroupAtAllRemainInfo(
+            canAtAll = resp.bool_can_at_all.get(),
+            remainAtAllCountForGroup = resp.uint32_remain_at_all_count_for_group.get(),
+            remainAtAllCountForUin = resp.uint32_remain_at_all_count_for_uin.get()
+        ))
+    }
     suspend fun getProhibitedMemberList(groupId: Long): Result<List<ProhibitedMemberInfo>> {
         val buffer = sendOidbAW("OidbSvc.0x899_0", 2201, 0, oidb_0x899.ReqBody().apply {
             uint64_group_code.set(groupId)
@@ -420,6 +452,36 @@ internal object GroupSvc: BaseSvc() {
                 }
             }
         }
+        try {
+            if (info != null && (info.alias == null || info.alias.isBlank())) {
+                val req = group_member_info.ReqBody()
+                req.uint64_group_code.set(groupId.toLong())
+                req.uint64_uin.set(uin.toLong())
+                req.bool_new_client.set(true)
+                req.uint32_client_type.set(1)
+                req.uint32_rich_card_name_ver.set(1)
+                val respBuffer = sendBufferAW("group_member_card.get_group_member_card_info", true, req.toByteArray())
+                if (respBuffer != null) {
+                    val rsp = group_member_info.RspBody()
+                    rsp.mergeFrom(respBuffer.slice(4))
+                    if (rsp.msg_meminfo.str_location.has()) {
+                        info.alias = rsp.msg_meminfo.str_location.get().toStringUtf8()
+                    }
+                    if (rsp.msg_meminfo.uint32_age.has()) {
+                        info.age = rsp.msg_meminfo.uint32_age.get().toByte()
+                    }
+                    if (rsp.msg_meminfo.bytes_group_honor.has()) {
+                        val honorBytes = rsp.msg_meminfo.bytes_group_honor.get().toByteArray()
+                        val honor = troop_honor.GroupUserCardHonor()
+                        honor.mergeFrom(honorBytes)
+                        info.level = honor.level.get()
+                        // 10315: medal_id not real group level
+                    }
+                }
+            }
+        } catch (err: Throwable) {
+            LogCenter.log(err.stackTraceToString(), Level.WARN)
+        }
         return if (info != null) {
             Result.success(info)
         } else {
@@ -526,7 +588,7 @@ internal object GroupSvc: BaseSvc() {
             throw RuntimeException("AppRuntime cannot cast to AppInterface")
         val businessHandler = app.getBusinessHandler(BusinessHandlerFactory.TROOP_MEMBER_LIST_HANDLER)
 
-        // void C(boolean foreRefresh, String groupId, String troopcode, int reqType); // RequestedTroopList/refreshMemberListFromServer
+        // void C(boolean forceRefresh, String groupId, String troopcode, int reqType); // RequestedTroopList/refreshMemberListFromServer
         if (!GroupSvc::METHOD_REQ_TROOP_MEM_LIST.isInitialized) {
             METHOD_REQ_TROOP_MEM_LIST = businessHandler.javaClass.declaredMethods.first {
                 it.parameterCount == 4
@@ -805,12 +867,13 @@ internal object GroupSvc: BaseSvc() {
                     senderId = obj["u"].asLong,
                     publishTime = obj["pubt"].asLong,
                     message = GroupAnnouncementMessage(
-                        text = obj["msg"].asJsonObject["text"].asString,
-                        images = obj["msg"].asJsonObject["pics"].asJsonArrayOrNull?.map {
+//                        text = obj["msg"].asJsonObject["text"].asString,
+                        text = fromHtml(obj["msg"].asJsonObject["text"].asString),
+                        images = obj["msg"].asJsonObject["pics"].asJsonArrayOrNull?.map { pic ->
                             GroupAnnouncementMessageImage(
-                                id = it.jsonObject["id"].asString,
-                                width = it.jsonObject["w"].asString,
-                                height = it.jsonObject["h"].asString,
+                                id = pic.jsonObject["id"].asString,
+                                width = pic.jsonObject["w"].asString,
+                                height = pic.jsonObject["h"].asString,
                             )
                         } ?: ArrayList()
                     )
@@ -819,6 +882,14 @@ internal object GroupSvc: BaseSvc() {
         } else {
             return Result.failure(Exception(body.jsonObject["em"].asStringOrNull))
         }
+    }
+
+    private fun fromHtml(htmlString: String): String {
+        return HtmlCompat
+            // 特殊处理&#10;，目的是替换为换行符，否则会被fromHtml忽略并移除
+            .fromHtml(htmlString.replace("&#10;", "[shamrockplaceholder]"), HtmlCompat.FROM_HTML_MODE_LEGACY)
+            .toString()
+            .replace("[shamrockplaceholder]", "\n")
     }
 
     @OptIn(ExperimentalSerializationApi::class)
@@ -905,6 +976,29 @@ internal object GroupSvc: BaseSvc() {
             Result.success(true)
         } else {
             Result.failure(Exception(body.jsonObject["em"].asStringOrNull))
+        }
+    }
+
+    suspend fun groupSign(groupId: Long): Result<String> {
+        val req = oidb_0xeb7.ReqBody()
+        val signInWriteReq = oidb_0xeb7.StSignInWriteReq()
+        signInWriteReq.groupId.set(groupId.toString())
+        signInWriteReq.uid.set(getUin())
+        var version = PlatformUtils.getClientVersion(MobileQQ.getContext())
+        version = version.replace("android", "").trimStart()
+        signInWriteReq.clientVersion.set(version)
+        req.signInWriteReq.set(signInWriteReq)
+        val buffer = sendOidbAW("OidbSvc.0xeb7", 3767, 1, req.toByteArray())
+        return if (buffer == null) {
+            Result.failure(Exception("操作失败"))
+        } else {
+            val body = oidb_sso.OIDBSSOPkg()
+            body.mergeFrom(buffer.slice(4))
+            val rsp = oidb_0xeb7.RspBody()
+            rsp.mergeFrom(body.bytes_bodybuffer.get().toByteArray())
+            val doneInfo = rsp.signInWriteRsp.doneInfo
+            LogCenter.log(rsp.toString(), Level.DEBUG)
+            Result.success("${doneInfo.leftTitleWrod.get()} ${doneInfo.rightDescWord.get()} ${doneInfo.belowPortraitWords.get().joinToString(" ")}")
         }
     }
 }

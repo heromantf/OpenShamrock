@@ -85,17 +85,6 @@ fun LabFragment() {
                     ShamrockConfig.pushUpdate(ctx)
                     return@Function true
                 }
-
-                Function(
-                    title = LocalString.antiTrace,
-                    desc = LocalString.antiTraceDesc,
-                    descColor = it,
-                    isSwitch = ShamrockConfig.isAntiTrace(ctx)
-                ) {
-                    ShamrockConfig.setAntiTrace(ctx, it)
-                    ShamrockConfig.pushUpdate(ctx)
-                    return@Function true
-                }
             }
         }
 
@@ -124,23 +113,12 @@ fun LabFragment() {
                 }*/
 
                 Function(
-                    title = LocalString.injectPacket,
-                    desc = LocalString.injectPacketDesc,
+                    title = "自回复测试",
+                    desc = "发送[ping]，机器人发送一个具有调试信息的返回。",
                     descColor = color,
-                    isSwitch = ShamrockConfig.isInjectPacket(ctx)
+                    isSwitch = ShamrockConfig.enableAliveReply(ctx)
                 ) {
-                    ShamrockConfig.setInjectPacket(ctx, it)
-                    ShamrockConfig.pushUpdate(ctx)
-                    return@Function true
-                }
-
-                Function(
-                    title = "自动唤醒QQ",
-                    desc = "QQ进程死亡时重新打开QQ进程，前提本进程存活。",
-                    descColor = color,
-                    isSwitch = ShamrockConfig.enableAutoStart(ctx)
-                ) {
-                    ShamrockConfig.setAutoStart(ctx, it)
+                    ShamrockConfig.setAliveReply(ctx, it)
                     return@Function true
                 }
 
@@ -151,6 +129,16 @@ fun LabFragment() {
                     isSwitch = ShamrockConfig.allowShell(ctx)
                 ) {
                     ShamrockConfig.setShellStatus(ctx, it)
+                    return@Function true
+                }
+
+                Function(
+                    title = "自动唤醒QQ",
+                    desc = "QQ进程死亡时重新打开QQ进程，前提本进程存活。",
+                    descColor = color,
+                    isSwitch = ShamrockConfig.enableAutoStart(ctx)
+                ) {
+                    ShamrockConfig.setAutoStart(ctx, it)
                     return@Function true
                 }
 
@@ -169,6 +157,60 @@ fun LabFragment() {
                     }
 
                     Function(
+                        title = "禁用Doze模式",
+                        desc = "禁止系统进入节能模式。",
+                        descColor = color,
+                        isSwitch = it.getBoolean("hook_doze", false)
+                    ) { value ->
+                        it.edit().putBoolean("hook_doze", value).apply()
+                        scope.toast(ctx, LocalString.restartSysToast)
+                        return@Function true
+                    }
+                }.onFailure {
+                    AppRuntime.log("无法启用附加选项，LSPosed模块未激活或者不支持XSharedPreferences", Level.WARN)
+                }
+            }
+
+        }
+
+        ActionBox(
+            modifier = Modifier.padding(top = 12.dp),
+            painter = painterResource(id = R.drawable.sharp_lock_24),
+            title = "安全性设置"
+        ) { color ->
+            Column {
+                Divider(
+                    modifier = Modifier,
+                    color = GlobalColor.Divider,
+                    thickness = 0.2.dp
+                )
+
+                Function(
+                    title = LocalString.injectPacket,
+                    desc = LocalString.injectPacketDesc,
+                    descColor = color,
+                    isSwitch = ShamrockConfig.isInjectPacket(ctx)
+                ) {
+                    ShamrockConfig.setInjectPacket(ctx, it)
+                    ShamrockConfig.pushUpdate(ctx)
+                    return@Function true
+                }
+
+                Function(
+                    title = LocalString.antiTrace,
+                    desc = LocalString.antiTraceDesc,
+                    descColor = color,
+                    isSwitch = ShamrockConfig.isAntiTrace(ctx)
+                ) {
+                    ShamrockConfig.setAntiTrace(ctx, it)
+                    ShamrockConfig.pushUpdate(ctx)
+                    return@Function true
+                }
+
+                kotlin.runCatching {
+                    ctx.getSharedPreferences("shared_config", Context.MODE_WORLD_READABLE)
+                }.onSuccess {
+                    Function(
                         title = "反检测加强",
                         desc = "可能导致某些设备频繁闪退",
                         descColor = color,
@@ -178,11 +220,8 @@ fun LabFragment() {
                         scope.toast(ctx, LocalString.restartToast)
                         return@Function true
                     }
-                }.onFailure {
-                    AppRuntime.log("无法启用附加选项，LSPosed模块未激活或者不支持XSharedPreferences", Level.WARN)
                 }
             }
-
         }
 
         ActionBox(
@@ -232,6 +271,17 @@ fun LabFragment() {
                     isSwitch = ShamrockConfig.enableSelfMsg(ctx)
                 ) {
                     ShamrockConfig.setEnableSelfMsg(ctx, it)
+                    ShamrockConfig.pushUpdate(ctx)
+                    return@Function true
+                }
+
+                Function(
+                    title = "同步消息推送类型异换",
+                    desc = "推送来自同号异设备消息，将同步消息作为自发消息推送。",
+                    descColor = it,
+                    isSwitch = ShamrockConfig.enableSyncMsgAsSentMsg(ctx)
+                ) {
+                    ShamrockConfig.setEnableSyncMsgAsSentMsg(ctx, it)
                     ShamrockConfig.pushUpdate(ctx)
                     return@Function true
                 }

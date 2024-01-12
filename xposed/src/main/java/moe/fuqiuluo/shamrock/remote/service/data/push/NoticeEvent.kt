@@ -20,7 +20,7 @@ internal enum class NoticeType {
 
 @Serializable
 internal enum class RequestType {
-    @SerialName("friend ") Friend,
+    @SerialName("friend") Friend,
     @SerialName("group") Group,
 }
 
@@ -42,6 +42,8 @@ internal enum class NoticeSubType {
     @SerialName("kick_me") KickMe,
 
     @SerialName("poke") Poke,
+    @SerialName("sign") Sign,
+
 
     @SerialName("title") Title,
     @SerialName("delete") Delete,
@@ -65,14 +67,14 @@ internal data class NoticeEvent(
     @SerialName("post_type") val postType: PostType,
     @SerialName("notice_type") val type: NoticeType,
     @SerialName("sub_type") val subType: NoticeSubType = NoticeSubType.None,
-    @SerialName("group_id") val groupId: Long = 0,
-    @SerialName("operator_id") val operatorId: Long = 0,
-    @SerialName("user_id") val userId: Long = 0,
-    @SerialName("sender_id") val senderId: Long = 0,
-    @SerialName("duration") val duration: Int = 0,
-    @SerialName("message_id") val msgId: Int = 0,
+    @SerialName("group_id") val groupId: Long = -1,
+    @SerialName("operator_id") val operatorId: Long = -1,
+    @SerialName("user_id") val userId: Long = -1,
+    @SerialName("sender_id") val senderId: Long = -1,
+    @SerialName("duration") val duration: Int = -1,
+    @SerialName("message_id") val msgId: Int = -1,
     @SerialName("tip_text") val tip: String = "",
-    @SerialName("target_id") val target: Long = 0,
+    @SerialName("target_id") val target: Long = -1,
     @SerialName("file") val file: GroupFileMsg? = null,
     @SerialName("private_file") val privateFile: PrivateFileMsg? = null,
     @SerialName("flag") val flag: String? = null,
@@ -87,6 +89,9 @@ internal data class NoticeEvent(
     // 戳一戳
     @SerialName("poke_detail") val pokeDetail: PokeDetail? = null,
 
+    // 群打卡
+    @SerialName("sign_detail") val signDetail: SignDetail? = null,
+
 )
 
 /**
@@ -99,8 +104,8 @@ internal data class RequestEvent(
     @SerialName("post_type") val postType: PostType,
     @SerialName("request_type") val type: RequestType,
     @SerialName("sub_type") val subType: RequestSubType = RequestSubType.None,
-    @SerialName("group_id") val groupId: Long = 0,
-    @SerialName("user_id") val userId: Long = 0,
+    @SerialName("group_id") val groupId: Long = -1,
+    @SerialName("user_id") val userId: Long = -1,
     @SerialName("comment") val comment: String = "",
     @SerialName("flag") val flag: String? = null,
 )
@@ -131,4 +136,11 @@ internal data class PokeDetail (
     val suffix: String? = "",
     @SerialName("action_img_url")
     val actionImg: String? = "https://tianquan.gtimg.cn/nudgeaction/item/0/expression.jpg",
+)
+
+@Serializable
+internal data class SignDetail (
+    val action: String? = "今日第1个打卡",
+    @SerialName("rank_img")
+    val rankImg: String? = "",
 )

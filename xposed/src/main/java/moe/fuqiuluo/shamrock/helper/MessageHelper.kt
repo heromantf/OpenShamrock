@@ -9,6 +9,7 @@ import com.tencent.qqnt.msg.api.IMsgService
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -38,7 +39,11 @@ internal object MessageHelper {
     ): Pair<Long, Int> {
         val uniseq = generateMsgId(chatType)
         val msg = messageArrayToMessageElements(chatType, uniseq.second, peerId, decodeCQCode(message)).also {
-            if (it.second.isEmpty() && !it.first) error("消息合成失败，请查看日志或者检查输入。")
+            if (it.second.isEmpty() && !it.first) {
+                error("消息合成失败，请查看日志或者检查输入。")
+            } else if (it.second.isEmpty()) {
+                return System.currentTimeMillis() to 0
+            }
         }.second.filter {
             it.elementType != -1
         } as ArrayList<MsgElement>
@@ -59,6 +64,12 @@ internal object MessageHelper {
         }.second.filter {
             it.elementType != -1
         } as ArrayList<MsgElement>
+
+        // ActionMsg No Care
+        if (msg.isEmpty()) {
+            return Result.success(System.currentTimeMillis() to 0)
+        }
+
         val totalSize = msg.filter {
             it.elementType == MsgConstant.KELEMTYPEPIC ||
                     it.elementType == MsgConstant.KELEMTYPEPTT ||
@@ -67,11 +78,11 @@ internal object MessageHelper {
             (it.picElement?.fileSize ?: 0) + (it.pttElement?.fileSize
                 ?: 0) + (it.videoElement?.fileSize ?: 0)
         }.reduceOrNull { a, b -> a + b } ?: 0
+        val estimateTime =  (totalSize / (300 * 1024)) * 1000 + 2000
 
-        val estimateTime =  (totalSize / (300 * 1024)) * 1000 + 5000
         lateinit var sendResultPair: Pair<Long, Int>
         val sendRet = withTimeoutOrNull<Pair<Int, String>>(estimateTime) {
-            suspendCoroutine {
+            suspendCancellableCoroutine {
                 GlobalScope.launch {
                     sendResultPair = sendMessageWithoutMsgId(
                         chatType,
@@ -181,6 +192,32 @@ internal object MessageHelper {
             uniseq.second to uniseq.first
         } else {
             0L to 0
+        }
+    }
+
+    suspend fun sendMessageNoCb(
+        chatType: Int,
+        peerId: String,
+        message: JsonArray,
+        fromId: String = peerId
+    ): Pair<Int, Long> {
+        val uniseq = generateMsgId(chatType)
+        val msg = messageArrayToMessageElements(chatType, uniseq.second, peerId, message).also {
+            if (it.second.isEmpty() && !it.first) error("消息合成失败，请查看日志或者检查输入。")
+        }.second.filter {
+            it.elementType != -1
+        } as ArrayList<MsgElement>
+        val contact = generateContact(chatType, peerId, fromId)
+        val nonMsg: Boolean = message.isEmpty()
+        return if (!nonMsg) {
+            val service = QRoute.api(IMsgService::class.java)
+            return suspendCoroutine {
+                service.sendMsg(contact, uniseq.second, msg) { code, why ->
+                    it.resume(code to uniseq.second)
+                }
+            }
+        } else {
+            -1 to uniseq.second
         }
     }
 

@@ -61,6 +61,7 @@ internal abstract class WebSocketTransmitServlet(
             timer("heartbeat", true, 0, heartbeatInterval) {
                 val runtime = AppRuntimeFetcher.appRuntime
                 val curUin = runtime.currentAccountUin
+                LogCenter.log("WebSocket心跳: $curUin", Level.DEBUG)
                 broadcastAnyEvent(
                     PushMetaEvent(
                         time = System.currentTimeMillis() / 1000,
@@ -78,6 +79,8 @@ internal abstract class WebSocketTransmitServlet(
                     )
                 )
             }
+        } else {
+            LogCenter.log("主动WebSocket心跳间隔为0，不启动心跳", Level.WARN)
         }
     }
 
@@ -86,7 +89,13 @@ internal abstract class WebSocketTransmitServlet(
         if (path != "/api") {
             eventReceivers.remove(conn)
         }
-        LogCenter.log({ "WSServer断开(${conn.remoteSocketAddress.address.hostAddress}:${conn.remoteSocketAddress.port}$path): $code,$reason,$remote" }, Level.WARN)
+        runCatching {
+            conn.remoteSocketAddress.address.hostAddress to conn.remoteSocketAddress.port
+        }.onSuccess {
+            LogCenter.log({ "WSServer断开(${it.first}:${it.second}$path): $code,$reason,$remote" }, Level.WARN)
+        }.onFailure {
+            LogCenter.log({ "WSServer断开($path): $code,$reason,$remote" }, Level.WARN)
+        }
     }
 
     override fun onMessage(conn: WebSocket, message: String) {

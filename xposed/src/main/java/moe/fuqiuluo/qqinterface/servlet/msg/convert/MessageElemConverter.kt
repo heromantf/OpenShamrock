@@ -319,23 +319,24 @@ internal sealed class MessageElemConverter: IMessageConvert {
             element: MsgElement
         ): MessageSegment {
             val tip = element.grayTipElement
-            when(val tipType = tip.subElementType) {
+            when(tip.subElementType) {
                 MsgConstant.GRAYTIPELEMENTSUBTYPEJSON -> {
                     val notify = tip.jsonGrayTipElement
                     when(notify.busiId) {
-                        /* 新人入群 */ 17L,
-                        /* 群戳一戳 */1061L, /* 群撤回 */1014L -> {}
-                        else -> LogCenter.log("不支持的灰条类型(JSON): $tipType", Level.WARN)
+                        /* 新人入群 */ 17L, /* 群戳一戳 */1061L,
+                        /* 群撤回 */1014L, /* 群设精消息 */2401L,
+                        /* 群头衔 */2407L -> {}
+                        else -> LogCenter.log("不支持的灰条类型(JSON): ${notify.busiId}", Level.WARN)
                     }
                 }
                 MsgConstant.GRAYTIPELEMENTSUBTYPEXMLMSG -> {
                     val notify = tip.xmlElement
                     when(notify.busiId) {
-                        /* 群戳一戳 */12L -> {}
-                        else -> LogCenter.log("不支持的灰条类型(XML): $tipType", Level.WARN)
+                        /* 群戳一戳 */1061L, /* 群打卡 */1068L -> {}
+                        else -> LogCenter.log("不支持的灰条类型(XML): ${notify.busiId}", Level.WARN)
                     }
                 }
-                else -> LogCenter.log("不支持的提示类型: $tip", Level.WARN)
+                else -> LogCenter.log("不支持的提示类型: ${tip.subElementType}", Level.WARN)
             }
             // 提示类消息，这里提供的是一个xml，不具备解析通用性
             // 在这里不推送
@@ -407,6 +408,22 @@ internal sealed class MessageElemConverter: IMessageConvert {
                 type = "forward",
                 data = mapOf(
                     "id" to longMsg.resId
+                )
+            )
+        }
+    }
+
+    object MarkdownConverter: MessageElemConverter() {
+        override suspend fun convert(
+            chatType: Int,
+            peerId: String,
+            element: MsgElement
+        ): MessageSegment {
+            val markdown = element.markdownElement
+            return MessageSegment(
+                type = "markdown",
+                data = mapOf(
+                    "content" to markdown.content
                 )
             )
         }
